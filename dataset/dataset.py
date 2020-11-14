@@ -64,6 +64,9 @@ def get_valid_transforms():
         )
     )
 
+def collate_fn(batch):
+    return tuple(zip(*batch))
+
 class zaloDataset(torch.utils.data.Dataset):
     def __init__(self, root_path, file_name, transforms = None):
         if os.path.exists('./data.csv') == False:
