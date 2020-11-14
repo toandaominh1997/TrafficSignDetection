@@ -49,7 +49,7 @@ class EfficientDetTrain(pl.LightningModule):
                 target['bbox'], target['cls'])
 
         loss, class_loss, box_loss = self.loss_fn(class_out, box_out, cls_targets, box_targets, num_positives)
-        return loss + class_loss + box_loss
+        return loss
     def validation_step(self, batch, batch_idx):
         x, targets, idx = batch
         x = torch.stack(x, dim = 0)
@@ -71,8 +71,9 @@ class EfficientDetTrain(pl.LightningModule):
                 target['bbox'], target['cls'])
 
         loss, class_loss, box_loss = self.loss_fn(class_out, box_out, cls_targets, box_targets, num_positives)
-        return {'loss': loss, "class_loss": class_loss, 'box_loss': box_loss}
+        return {'val_loss': loss, "class_loss": class_loss, 'box_loss': box_loss}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        # optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        optimizer = torch.optim.SGD(self.parameters(), lr = 1e-4, momentum=0.9, weight_decay = 4e-5)
         return optimizer

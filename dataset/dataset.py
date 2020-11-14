@@ -120,6 +120,7 @@ class zaloDataset(torch.utils.data.Dataset):
         # df = pd.merge(df_annotation, df_image, on = 'image_id', how='left')
         return df
     def __len__(self):
+        return 100
         return len(self.df)
 
     def __getitem__(self, index):
