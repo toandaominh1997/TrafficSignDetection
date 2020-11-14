@@ -7,6 +7,7 @@ import torch.nn as nn
 from albumentations.pytorch.transforms import ToTensorV2
 import albumentations as A
 import json
+import glob
 
 import random
 
@@ -55,14 +56,29 @@ def get_valid_transforms():
             A.Resize(height=512, width=512, p=1.0),
             ToTensorV2(p=1.0),
         ],
-        p=1.0,
-        bbox_params=A.BboxParams(
-            format='pascal_voc',
-            min_area=0,
-            min_visibility=0,
-            label_fields=['labels']
-        )
+        p=1.0
     )
+
+def collate_fn(batch):
+    return tuple(zip(*batch))
+class zaloDatasetInfer(torch.utils.data.Dataset):
+    def __init__(self, root_path, transforms):
+        self.images = glob.glob(os.path.join(root_path, '*.png'))
+        self.transforms = transforms
+    def __len__(self):
+        return len(self.images)
+    def __getitem__(self, index):
+        image_id = self.images[index].split('/')[-1].split('.')[0]
+        image = cv2.imread(self.images[index])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        image /= 255.0
+
+        if self.transforms:
+            sample = {'image': image}
+            sample = self.transforms(**sample)
+            image = sample['image']
+        return image, image_id
+
 
 class zaloDataset(torch.utils.data.Dataset):
     def __init__(self, root_path, file_name, transforms = None):
