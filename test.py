@@ -69,10 +69,10 @@ def _batch_detection(
 
 test_dataset = zaloDatasetInfer(root_path = "/home/tonne/code/TrafficSignDetection/data/za_traffic_2020/traffic_train/images",
                     transforms=get_valid_transforms())
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size = 2, shuffle =False, num_workers=8, collate_fn=collate_fn)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size = 10, shuffle =False, num_workers=8, collate_fn=collate_fn)
 model = EfficientDetTrain(model_name = 'tf_efficientdet_d0',
                           num_classes=1)
-model.load_from_checkpoint('/home/tonne/code/TrafficSignDetection/lightning_logs/version_1/checkpoints/epoch=24.ckpt',
+model.load_from_checkpoint('/home/tonne/code/TrafficSignDetection/data/epoch=99.ckpt',
                            model_name = 'tf_efficientdet_d0', num_classes = 1)
 for batch in test_loader:
     x, idx = batch

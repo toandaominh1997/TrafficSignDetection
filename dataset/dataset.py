@@ -27,13 +27,13 @@ seed_everything(SEED)
 def get_train_transforms():
     return A.Compose(
         [
-            # A.RandomSizedCrop(min_max_height=(800, 800), height=1024, width=1024, p=0.5),
-            # A.OneOf([
-            #     A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2,
-            #                          val_shift_limit=0.2, p=0.9),
-            #     A.RandomBrightnessContrast(brightness_limit=0.2,
-            #                                contrast_limit=0.2, p=0.9),
-            # ],p=0.9),
+            # A.RandomSizedCrop(min_max_height=(600, 600), height=1024, width=1024, p=0.5),
+            A.OneOf([
+                A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2,
+                                     val_shift_limit=0.2, p=0.9),
+                A.RandomBrightnessContrast(brightness_limit=0.2,
+                                           contrast_limit=0.2, p=0.9),
+            ],p=0.9),
             A.ToGray(p=0.01),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
@@ -88,6 +88,7 @@ class zaloDataset(torch.utils.data.Dataset):
         else:
             self.df = pd.read_csv('./data.csv')
         self.df = self.df.loc[self.df['file_name'].notnull()]
+        print('num_class: ', self.df['category_id'].nunique())
         self.root_path = root_path
         self.transforms = transforms
 
@@ -131,7 +132,9 @@ class zaloDataset(torch.utils.data.Dataset):
         boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
         boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
 
-        labels = torch.ones((boxes.shape[0], ), dtype = torch.int64)
+        labels = self.df.loc[self.df['image_id']==image_id, ['category_id']].values.reshape(-1)
+        # labels = torch.ones((boxes.shape[0], ), dtype = torch.int64)
+        labels = torch.from_numpy(labels).type(torch.int64)
 
         target = {}
         target['boxes'] = boxes
@@ -145,8 +148,8 @@ class zaloDataset(torch.utils.data.Dataset):
             })
             if len(sample['bboxes']) > 0:
                 image = sample['image']
-                target['boxes'] = torch.from_numpy(np.array(sample['bboxes']))
-                # target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
+                # target['boxes'] = torch.from_numpy(np.array(sample['bboxes']))
+                target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
                 target['boxes'][:,[0,1,2,3]] = target['boxes'][:,[1,0,3,2]]  #yxyx: be warning
                 # target['boxes'] = target['boxes'].view(1, -1, 4)
         target_eff = {'bbox': target['boxes'], 'cls': target['labels']}
