@@ -1,7 +1,17 @@
+import sys
+sys.path.append('/home/tonne/code/TrafficSignDetection/data/thirdparty/efficientdet-pytorch/')
 from typing import Optional, Dict, List
 import torch
-from train import EfficientDetTrain, train_loader
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from model.efficientdet import EfficientDetTrain
+
+from dataset.dataset import get_train_transforms, zaloDataset, collate_fn, zaloDatasetInfer, get_valid_transforms
+
+
 from effdet.anchors import Anchors, AnchorLabeler, generate_detections, MAX_DETECTION_POINTS
+
 
 def _post_process(
         cls_outputs: List[torch.Tensor],
@@ -57,12 +67,15 @@ def _batch_detection(
         batch_detections.append(detections)
     return torch.stack(batch_detections, dim=0)
 
+test_dataset = zaloDatasetInfer(root_path = "/home/tonne/code/TrafficSignDetection/data/za_traffic_2020/traffic_train/images",
+                    transforms=get_valid_transforms())
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size = 2, shuffle =False, num_workers=8, collate_fn=collate_fn)
 model = EfficientDetTrain(model_name = 'tf_efficientdet_d0',
                           num_classes=1)
 model.load_from_checkpoint('./lightning_logs/version_3/checkpoints/epoch=0.ckpt',
                            model_name = 'tf_efficientdet_d0', num_classes = 1)
-for batch in train_loader:
-    x, targets, idx = batch
+for batch in test_loader:
+    x, idx = batch
     x = torch.stack(x, dim = 0)
     class_out, box_out = model(x)
     class_out, box_out, indices, classes = _post_process(
@@ -73,6 +86,24 @@ for batch in train_loader:
     else:
         img_scale, img_size = img_info['img_scale'], img_info['img_size']
     output =  _batch_detection(x.shape[0], class_out, box_out, model.anchors.boxes, indices, classes, img_scale, img_size)
-    print('output: ', output)
+
+    print('output: ', output.shape)
+    visualization = True
+
+    if visualization:
+        fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+        for i in range(2):
+            image = x[0].permute(1, 2, 0).cpu().numpy()
+            # image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
+            image = image *256
+            print('iamge: ', image)
+            cv2.rectangle(image, (2, 2), (4, 4), (0, 0, 0), -1)
+            cv2.imshow('name', image)
+            ax.set_axis_off()
+            fig.savefig('out.png')
+            break
+
+
     break
+
 
