@@ -72,7 +72,7 @@ test_dataset = zaloDatasetInfer(root_path = "/home/tonne/code/TrafficSignDetecti
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size = 2, shuffle =False, num_workers=8, collate_fn=collate_fn)
 model = EfficientDetTrain(model_name = 'tf_efficientdet_d0',
                           num_classes=1)
-model.load_from_checkpoint('./lightning_logs/version_3/checkpoints/epoch=0.ckpt',
+model.load_from_checkpoint('/home/tonne/code/TrafficSignDetection/lightning_logs/version_1/checkpoints/epoch=24.ckpt',
                            model_name = 'tf_efficientdet_d0', num_classes = 1)
 for batch in test_loader:
     x, idx = batch
@@ -91,17 +91,24 @@ for batch in test_loader:
     visualization = True
 
     if visualization:
-        fig, ax = plt.subplots(1, 1, figsize=(16, 8))
-        for i in range(2):
-            image = x[0].permute(1, 2, 0).cpu().numpy()
-            # image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-            image = image *256
-            print('iamge: ', image)
-            cv2.rectangle(image, (2, 2), (4, 4), (0, 0, 0), -1)
-            cv2.imshow('name', image)
-            ax.set_axis_off()
-            fig.savefig('out.png')
-            break
+        score_threshold = 0.2
+        for i in range(len(output)):
+            image = x[i].permute(1, 2, 0).cpu().numpy()
+            classes = output[i].detach().cpu().numpy()[:, -1]
+            scores = output[i].detach().cpu().numpy()[:, 4]
+            print('scores: ', scores)
+            indexes = np.where(scores > score_threshold)[0]
+            boxes = output[i].detach().cpu().numpy()[:, :4][indexes]
+            boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
+            boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+            image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
+            for box in boxes:
+                print('box: ', box)
+                cv2.rectangle(image, (box[0], box[1]), (box[2], box[3]), (0, 0, 0), 1)
+            plt.figure(figsize=(12, 12))
+            plt.axis('off')
+            plt.imshow(image)
+            plt.show()
 
 
     break
