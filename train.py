@@ -28,11 +28,12 @@ train_dataset = zaloDataset(root_path = os.path.join(os.path.join(os.getcwd(), '
                     transforms=get_train_transforms())
 def collate_fn(batch):
     return tuple(zip(*batch))
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 12, shuffle =True, num_workers=8, collate_fn=collate_fn)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 10, shuffle =True, num_workers=8, collate_fn=collate_fn)
 
 class EfficientDetTrain(pl.LightningModule):
     def __init__(self, model_name, num_classes, create_labeler=True):
         super().__init__()
+        self.save_hyperparameters()
         config = get_efficientdet_config(model_name)
 
         self.model = EfficientDet(config)
@@ -53,9 +54,6 @@ class EfficientDetTrain(pl.LightningModule):
         x = torch.stack(x, dim = 0)
         class_out, box_out = self.forward(x)
 
-        # target['bbox'] = torch.stack(target['bbox'], dim = 1)
-        # target['cls'] = torch.stack(target['cls'], dim = 1)
-
         bbox = [tar['bbox'].float() for tar in targets]
         clses = [tar['cls'].float() for tar in targets]
         target = {}
@@ -73,13 +71,36 @@ class EfficientDetTrain(pl.LightningModule):
 
         loss, class_loss, box_loss = self.loss_fn(class_out, box_out, cls_targets, box_targets, num_positives)
         return loss + class_loss + box_loss
+    def validation_step(self, batch, batch_idx):
+        x, targets, idx = batch
+        x = torch.stack(x, dim = 0)
+        class_out, box_out = self.forward(x)
+
+        bbox = [tar['bbox'].float() for tar in targets]
+        clses = [tar['cls'].float() for tar in targets]
+        target = {}
+        target['bbox'] = bbox
+        target['cls'] = clses
+        if self.anchor_labeler is None:
+            # target should contain pre-computed anchor labels if labeler not present in bench
+            assert 'label_num_positives' in target
+            cls_targets = [target[f'label_cls_{l}'] for l in range(self.num_levels)]
+            box_targets = [target[f'label_bbox_{l}'] for l in range(self.num_levels)]
+            num_positives = target['label_num_positives']
+        else:
+            cls_targets, box_targets, num_positives = self.anchor_labeler.batch_label_anchors(
+                target['bbox'], target['cls'])
+
+        loss, class_loss, box_loss = self.loss_fn(class_out, box_out, cls_targets, box_targets, num_positives)
+        return {'loss': loss, "class_loss": class_loss, 'box_loss': box_loss}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
         return optimizer
 
-eff = EfficientDetTrain(model_name = 'tf_efficientdet_d0',
-                        num_classes = 1)
-trainer = pl.Trainer(max_epochs = 1, gpus = 1)
-trainer.fit(eff, train_loader, train_loader)
+if __name__ == '__main__':
+    eff = EfficientDetTrain(model_name = 'tf_efficientdet_d0',
+                            num_classes = 1)
+    trainer = pl.Trainer(max_epochs = 100, gpus = 1)
+    trainer.fit(eff, train_loader, train_loader)
 
